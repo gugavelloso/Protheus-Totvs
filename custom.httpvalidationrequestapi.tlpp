@@ -1,0 +1,32 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+#include 'tlpp-rest.th'
+
+Class validationRequestApi
+
+	// Public properties to access validated data
+	public data oHeader as object
+	public data oBody   as object
+
+	public method new() constructor
+	public method validate() as logical
+End Class
+
+method new() class validationRequestApi
+	::oHeader := HttpHeaderTools():new()
+	::oBody   := HttpBodyUtils():new()
+Return self
+
+method validate() class validationRequestApi
+	Local lOk as logical
+
+	lOk := ::oHeader:getHeaderTenant()
+	if !lOk
+		Return .F.
+	endif
+
+	lOk := ::oBody:checkBodyRequest()
+	if !lOk
+		Return .F.
+	endif
+Return .T.

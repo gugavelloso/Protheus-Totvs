@@ -1,0 +1,76 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+#include 'tlpp-rest.th'
+
+
+class HttpHeaderTools
+	//Declaration of attributes
+	data cCompany as character
+	data cBranch  as character
+
+	//Declaration of Methods
+	public method new() constructor
+	public method getHeaderTenant() as logical
+	public method getCompany() as character
+	public method getBranch()  as character
+endclass
+
+method new() class HttpHeaderTools
+	::cCompany := ""
+	::cBranch  := ""
+Return self
+
+method getCompany() class HttpHeaderTools; Return ::cCompany
+method getBranch() class HttpHeaderTools; Return ::cBranch
+
+method getHeaderTenant() class HttpHeaderTools
+	Local oHeaderValue 		as json
+	Local aCompanyAndBranch as array
+	Local cCompany 			as character
+	Local cBranch 			as character
+	Local cHeaderParam 		as character
+	Local cHeaderTenant 	as character
+	Local lHasHeaderKey 	as logical
+
+	cHeaderParam := SuperGetMV("MV_XCHKHDR",.F.,"tenantid")
+	lHasHeaderKey := oRest:existKeyHeaderRequest(cHeaderParam)
+
+	if .Not. lHasHeaderKey
+		oRest:SetStatusCode(400)
+		oRest:SetResponse("The header '" + cHeaderParam + "' was not provided.")
+		Return .F.
+	else
+		oHeaderValue := oRest:getHeaderRequest()
+		if oHeaderValue == Nil
+			oRest:SetStatusCode(400)
+			oRest:SetResponse("Invalid headers: request headers missing.")
+			Return .F.
+		endif
+
+		cHeaderTenant := AllTrim(oHeaderValue[cHeaderParam])
+		if Empty(cHeaderTenant)
+			oRest:SetStatusCode(400)
+			oRest:SetResponse("The header is missing or empty.")
+			Return .F.
+		endif
+
+		aCompanyAndBranch := StrTokArr(cHeaderTenant, ",")
+		if (ValType(aCompanyAndBranch) != "A") .Or. Len(aCompanyAndBranch) < 2
+			oRest:SetStatusCode(400)
+			oRest:SetResponse("Invalid header format. Expected 'company,branch'")
+			Return .F.
+		else
+			cCompany := AllTrim(aCompanyAndBranch[1])
+			cBranch := AllTrim(aCompanyAndBranch[2])
+
+			if !FwFilExist(cCompany, cBranch)
+				oRest:SetStatusCode(422)
+				oRest:SetResponse("Company and/or Branch provided in the header is invalid or does not exist.")
+				Return .F.
+			endif
+
+			::cCompany := cCompany
+			::cBranch  := cBranch
+		endif
+	endif
+Return .T.
