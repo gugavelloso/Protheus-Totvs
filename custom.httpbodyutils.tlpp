@@ -3,45 +3,40 @@
 #include 'tlpp-rest.th'
 
 Class HttpBodyUtils
-	// Public property to hold the parsed JSON
-	public data oJsonBody as object
-	public method new() constructor
-	public method checkBodyRequest() as logical
+    public data oJsonBody as object
+
+    public method new() constructor
+    public method validateBody() as array
 endclass
 
 method new() class HttpBodyUtils
-	::oJsonBody := Nil
+    ::oJsonBody := Nil
 Return self
 
-method checkBodyRequest() class HttpBodyUtils
-	Local cBody as character
-	Local xRet  as variant
+method validateBody() class HttpBodyUtils
+    Local aReturn    as array
+    Local cBody      as character
+    Local vJsonError as variant
 
-	cBody := oRest:getBodyRequest()
+    cBody := oRest:getBodyRequest()
 
-	if Empty(cBody)
-		oRest:SetStatusCode(400)
-		oRest:SetResponse("Request body not sent.")
-		Return .F.
-	endif
+    if Empty(cBody)
+        aReturn := { .F., "Request body not sent.", 400 }
+        Return aReturn
+    endif
 
-	// --- Robust Parsing Logic ---
-	::oJsonBody := JsonObject():new()
+    ::oJsonBody  := JsonObject():new()
+    vJsonError   := ::oJsonBody:FromJson(cBody)
 
-	// 1. Try to parse directly
-	xRet := ::oJsonBody:FromJson(cBody)
+    if vJsonError != Nil
+        cBody      := DecodeUTF8(cBody)
+        vJsonError := ::oJsonBody:FromJson(cBody)
+    endif
 
-	// 2. If it fails, try decoding from UTF-8 and parse again
-	if xRet != Nil
-		cBody := DecodeUTF8(cBody)
-		xRet := ::oJsonBody:FromJson(cBody)
-	endif
+    if vJsonError != Nil
+        aReturn := { .F., "Invalid JSON format: " + vJsonError, 400 }
+        Return aReturn
+    endif
 
-	// 3. If it still fails after both attempts, the JSON is truly invalid
-	if xRet != Nil
-		oRest:SetStatusCode(400)
-		oRest:SetResponse("Invalid JSON format: " + xRet)
-		Return .F.
-	endif
-
-Return .T.
+    aReturn := { .T., "", 0 }
+Return aReturn
