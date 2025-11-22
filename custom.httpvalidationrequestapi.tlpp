@@ -3,30 +3,33 @@
 #include 'tlpp-rest.th'
 
 Class validationRequestApi
+    public data oHeader as object
+    public data oBody   as object
 
-	// Public properties to access validated data
-	public data oHeader as object
-	public data oBody   as object
-
-	public method new() constructor
-	public method validate() as logical
+    public method new() constructor
+    public method validate() as logical
 End Class
 
 method new() class validationRequestApi
-	::oHeader := HttpHeaderTools():new()
-	::oBody   := HttpBodyUtils():new()
+    ::oHeader := HttpHeaderTools():new()
+    ::oBody   := HttpBodyUtils():new()
 Return self
 
 method validate() class validationRequestApi
-	Local lOk as logical
+    Local aValidationResult as array
 
-	lOk := ::oHeader:getHeaderTenant()
-	if !lOk
-		Return .F.
-	endif
+    aValidationResult := ::oHeader:validateTenant()
+    if !aValidationResult[1]
+        oRest:SetStatusCode(aValidationResult[3])
+        oRest:SetResponse(aValidationResult[2])
+        Return .F.
+    endif
 
-	lOk := ::oBody:checkBodyRequest()
-	if !lOk
-		Return .F.
-	endif
+    aValidationResult := ::oBody:validateBody()
+    if !aValidationResult[1]
+        oRest:SetStatusCode(aValidationResult[3])
+        oRest:SetResponse(aValidationResult[2])
+        Return .F.
+    endif
+
 Return .T.
